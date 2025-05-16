@@ -93,4 +93,4 @@ MIT — используй свободно, адаптируй под свой 
 
 ---
 
-> Поддержка: Telegram `@your_admin` | GitHub Issues
+> Поддержка: Telegram `@kot_teamlead` | GitHub Issues
