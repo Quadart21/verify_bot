@@ -1,16 +1,14 @@
 from aiogram import types
 from aiogram.dispatcher import FSMContext, Dispatcher
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-
 from config import OPERATORS
 from database.db import (
     get_pending_verifications,
     get_verification_data,
     get_verification_status,
     set_verification_status,
-    get_all_requisites,
     get_pending_verifications_count
 )
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from keyboards.reply_operator import get_operator_menu
 
 
@@ -47,43 +45,14 @@ def register_operator_payments(dp: Dispatcher):
             return
 
         await state.update_data(current_user=user_id)
-
-        requisites = get_all_requisites()
-        if not requisites:
-            await msg.answer("❗ Нет доступных реквизитов.")
-            return
-
-        kb = ReplyKeyboardMarkup(resize_keyboard=True)
-        for r in requisites:
-            kb.add(KeyboardButton(r[1]))
-        kb.add(KeyboardButton("📝 Ввести вручную"), KeyboardButton("🔙 Назад"))
-        await state.set_state("awaiting_requisite_selection")
-        await msg.answer(f"👤 Клиент: {user_id}\nВыберите или введите реквизит:", reply_markup=kb)
-
-    @dp.message_handler(state="awaiting_requisite_selection", user_id=OPERATORS)
-    async def choose_or_enter_requisite(msg: types.Message, state: FSMContext):
-        if msg.text == "📝 Ввести вручную":
-            await msg.answer("✍ Введите реквизиты вручную:")
-            await state.set_state("awaiting_requisite_manual")
-        elif msg.text == "🔙 Назад":
-            await show_requisites_list(msg, state)
-        else:
-            label = msg.text
-            for r in get_all_requisites():
-                if r[1] == label:
-                    details = r[2]
-                    await send_requisite_to_user(msg, state, details)
-                    return
-            await msg.answer("⚠️ Реквизит не найден.")
+        await msg.answer("✍ Введите реквизиты вручную:")
+        await state.set_state("awaiting_requisite_manual")
 
     @dp.message_handler(state="awaiting_requisite_manual", user_id=OPERATORS)
     async def enter_manual_requisite(msg: types.Message, state: FSMContext):
-        await send_requisite_to_user(msg, state, msg.text)
-
-    async def send_requisite_to_user(msg: types.Message, state: FSMContext, text: str):
         user_id = (await state.get_data())["current_user"]
 
-        # Дополнительная защита от дублирования
+        # Проверка, не был ли уже выдан реквизит
         current_status = get_verification_status(user_id)
         if current_status != "docs_ok":
             await msg.answer("⚠️ Пользователь уже получил реквизиты.")
@@ -93,11 +62,11 @@ def register_operator_payments(dp: Dispatcher):
 
         await msg.bot.send_message(
             user_id,
-            f"💳 Реквизиты для оплаты:\n\n{text}\n\nПожалуйста, отправьте фото или скриншот чека после оплаты."
+            f"💳 Реквизиты для оплаты:\n\n{msg.text}\n\nПожалуйста, отправьте фото или скриншот чека после оплаты."
         )
 
         await state.finish()
-        await msg.answer("✅ Реквизит выслан клиенту.\n↩ Возврат в меню оператора.", reply_markup=get_operator_menu(_get_counts()))
+        await msg.answer("✅ Реквизит отправлен клиенту.\n↩ Возврат в меню оператора.", reply_markup=get_operator_menu(_get_counts()))
 
     @dp.message_handler(lambda msg: msg.text.startswith("💰 Проверить оплату"), user_id=OPERATORS)
     async def show_payment_list(msg: types.Message, state: FSMContext):
