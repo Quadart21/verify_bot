@@ -94,14 +94,25 @@ def update_verification(user_id: int, field: str, value: str, status: str = None
             """, (value, user_id))
         conn.commit()
 
-def set_verification_status(user_id: int, status: str, reason: str = None):
-    with create_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE verifications SET status = ?, rejection_reason = ?
-            WHERE user_id = ?
-        """, (status, reason, user_id))
-        conn.commit()
+def set_verification_status(user_id, status, reason=None, is_direct=False):
+    conn = create_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT id FROM verifications WHERE user_id = ?", (user_id,))
+    verification = cursor.fetchone()
+
+    if not verification:
+        conn.close()
+        return
+
+    # сохраняем, что заявка без видео
+    if is_direct:
+        cursor.execute("UPDATE verifications SET status = ?, rejection_reason = ?, video = 'SKIP' WHERE user_id = ?", (status, reason, user_id))
+    else:
+        cursor.execute("UPDATE verifications SET status = ?, rejection_reason = ? WHERE user_id = ?", (status, reason, user_id))
+
+    conn.commit()
+    conn.close()
 
 def get_verification_data(user_id: int) -> dict:
     with create_connection() as conn:
@@ -123,14 +134,13 @@ def get_verification_data(user_id: int) -> dict:
             }
         return {}
 
-def get_pending_verifications(status: str) -> list:
-    with create_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT user_id FROM verifications
-            WHERE status = ?
-        """, (status,))
-        return [row[0] for row in cursor.fetchall()]
+def get_pending_verifications(status: str):
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT DISTINCT user_id FROM verifications WHERE status = ?", (status,))
+    result = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return result
 
 def get_pending_verifications_count(status: str) -> int:
     with create_connection() as conn:
@@ -138,6 +148,14 @@ def get_pending_verifications_count(status: str) -> int:
         cursor.execute("SELECT COUNT(*) FROM verifications WHERE status = ?", (status,))
         return cursor.fetchone()[0]
 
+
+def is_verified(user_id: int) -> bool:
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT is_verified FROM users WHERE telegram_id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return bool(row and row[0])
 # ===================== Реквизиты =====================
 
 def add_requisite(label: str, details: str):

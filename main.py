@@ -9,6 +9,8 @@ from handlers.operator_documents import register_operator_documents
 from handlers.operator_payments import register_operator_payments
 from handlers.operator_video import register_operator_video
 from handlers.operator_requisites import register_operator_requisites
+from handlers.direct_request import register_direct_request
+
 
 def main():
     # Инициализация базы данных
@@ -25,6 +27,7 @@ def main():
     register_operator_payments(dp)
     register_operator_video(dp)
     register_operator_requisites(dp)
+    register_direct_request(dp)
 
     # Запуск
     executor.start_polling(dp, skip_updates=True)
