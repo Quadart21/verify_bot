@@ -16,13 +16,19 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from keyboards.reply_operator import get_operator_menu
 
 
-def register_operator_payments(dp: Dispatcher):
+def register_operator_payments(dp: Dispatcher): 
 
     @dp.message_handler(lambda msg: msg.text.startswith("💳 Выдать реквизиты"), user_id=OPERATORS)
     async def show_requisites_list(msg: types.Message, state: FSMContext):
-        uids_docs_ok = get_pending_verifications("docs_ok")
+
         uids_requests = get_pending_requisite_requests()
-        queue = list(set(uids_docs_ok + uids_requests))
+        uids_waiting = []
+
+        for status in ("docs_ok", "video_ok", "finished"):
+            uids_waiting += get_pending_verifications(status)
+
+        uids_waiting = list(set(uids_waiting) - set(uids_requests))
+        queue = uids_requests + uids_waiting
 
         if not queue:
             await msg.answer("📭 Нет клиентов, ожидающих реквизиты.")
@@ -32,7 +38,8 @@ def register_operator_payments(dp: Dispatcher):
         for uid in queue:
             kb.add(KeyboardButton(f"Реквизиты: {uid}"))
         kb.add(KeyboardButton("🔙 Назад"))
-        await state.set_state("awaiting_requisites_selection")
+
+        await state.set_state("awaiting_requisites_selection") 
         await msg.answer("👤 Выберите клиента для выдачи реквизита:", reply_markup=kb)
 
     @dp.message_handler(lambda msg: msg.text.startswith("Реквизиты:"), state="awaiting_requisites_selection", user_id=OPERATORS)

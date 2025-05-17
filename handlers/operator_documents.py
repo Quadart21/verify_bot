@@ -14,7 +14,7 @@ def register_operator_documents(dp: Dispatcher):
 
     @dp.message_handler(lambda msg: msg.text.startswith("📄 Проверить документы"), user_id=OPERATORS)
     async def show_documents_list(msg: types.Message, state: FSMContext):
-        users = get_pending_verifications("new")
+        users = list(set(get_pending_verifications("new")))
         if not users:
             await msg.answer("📭 Нет заявок на проверку документов.")
             return

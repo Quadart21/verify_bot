@@ -16,7 +16,7 @@ def register_operator_video(dp: Dispatcher):
 
     @dp.message_handler(lambda msg: msg.text.startswith("🎥 Проверить видео"), user_id=OPERATORS)
     async def show_video_list(msg: types.Message, state: FSMContext):
-        queue = get_pending_verifications("video_waiting")
+        queue = list(set(get_pending_verifications("video_waiting")))
         if not queue:
             await msg.answer("📭 Нет видео на проверку.")
             return
