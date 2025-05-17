@@ -20,13 +20,11 @@ def register_operator_payments(dp: Dispatcher):
 
     @dp.message_handler(lambda msg: msg.text.startswith("💳 Выдать реквизиты"), user_id=OPERATORS)
     async def show_requisites_list(msg: types.Message, state: FSMContext):
-
+        # Только клиенты на этапе docs_ok или с активным запросом
         uids_requests = get_pending_requisite_requests()
-        uids_waiting = []
+        uids_waiting = get_pending_verifications("docs_ok")
 
-        for status in ("docs_ok", "video_ok", "finished"):
-            uids_waiting += get_pending_verifications(status)
-
+        # Исключить из ожидания тех, кто уже создал заявку на реквизиты
         uids_waiting = list(set(uids_waiting) - set(uids_requests))
         queue = uids_requests + uids_waiting
 
@@ -39,7 +37,7 @@ def register_operator_payments(dp: Dispatcher):
             kb.add(KeyboardButton(f"Реквизиты: {uid}"))
         kb.add(KeyboardButton("🔙 Назад"))
 
-        await state.set_state("awaiting_requisites_selection") 
+        await state.set_state("awaiting_requisites_selection")
         await msg.answer("👤 Выберите клиента для выдачи реквизита:", reply_markup=kb)
 
     @dp.message_handler(lambda msg: msg.text.startswith("Реквизиты:"), state="awaiting_requisites_selection", user_id=OPERATORS)

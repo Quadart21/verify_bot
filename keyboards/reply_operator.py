@@ -14,6 +14,5 @@ def get_operator_menu(counts: dict) -> ReplyKeyboardMarkup:
         KeyboardButton(f"🎥 Проверить видео ({counts['videos']})"),
     )
     kb.row(KeyboardButton("📋 Список заявок"))
-    kb.row(KeyboardButton("⚙️ Управление реквизитами"))
 
     return kb

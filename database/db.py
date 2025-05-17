@@ -77,6 +77,27 @@ def set_user_verified(telegram_id: int):
 
 # ===================== Верификация =====================
 
+def get_all_verifications():
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT user_id, status FROM verifications
+        WHERE status != 'rejected'
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"user_id": row[0], "status": row[1]} for row in rows]
+
+
+def delete_verification(user_id: int):
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM verifications WHERE user_id = ?", (user_id,))
+    cursor.execute("DELETE FROM requests WHERE user_id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+
 def create_verification(user_id: int):
     with create_connection() as conn:
         cursor = conn.cursor()
