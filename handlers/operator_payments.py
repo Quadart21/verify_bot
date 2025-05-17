@@ -6,7 +6,11 @@ from database.db import (
     get_verification_data,
     get_verification_status,
     set_verification_status,
-    get_pending_verifications_count
+    get_pending_verifications_count,
+    get_pending_requisite_requests,
+    mark_requisite_request_done,
+    update_verification,
+    is_verified
 )
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from keyboards.reply_operator import get_operator_menu
@@ -16,10 +20,10 @@ def register_operator_payments(dp: Dispatcher):
 
     @dp.message_handler(lambda msg: msg.text.startswith("💳 Выдать реквизиты"), user_id=OPERATORS)
     async def show_requisites_list(msg: types.Message, state: FSMContext):
-        queue = [
-            uid for uid in get_pending_verifications("docs_ok")
-            if get_verification_status(uid) == "docs_ok"
-        ]
+        uids_docs_ok = get_pending_verifications("docs_ok")
+        uids_requests = get_pending_requisite_requests()
+        queue = list(set(uids_docs_ok + uids_requests))
+
         if not queue:
             await msg.answer("📭 Нет клиентов, ожидающих реквизиты.")
             return
@@ -40,7 +44,7 @@ def register_operator_payments(dp: Dispatcher):
             return
 
         current_status = get_verification_status(user_id)
-        if current_status != "docs_ok":
+        if current_status not in ("docs_ok", "video_ok", "finished"):
             await msg.answer("❗ Пользователь уже получил реквизиты или недоступен.")
             return
 
@@ -52,13 +56,9 @@ def register_operator_payments(dp: Dispatcher):
     async def enter_manual_requisite(msg: types.Message, state: FSMContext):
         user_id = (await state.get_data())["current_user"]
 
-        # Проверка, не был ли уже выдан реквизит
-        current_status = get_verification_status(user_id)
-        if current_status != "docs_ok":
-            await msg.answer("⚠️ Пользователь уже получил реквизиты.")
-            return
-
-        set_verification_status(user_id, "paid_waiting")
+        # Очистить старый чек и установить новый статус
+        update_verification(user_id, "payment_proof", "", "paid_waiting")
+        mark_requisite_request_done(user_id)
 
         await msg.bot.send_message(
             user_id,
@@ -100,7 +100,12 @@ def register_operator_payments(dp: Dispatcher):
         kb = ReplyKeyboardMarkup(resize_keyboard=True)
         kb.add("✅ Подтвердить оплату", "❌ Отклонить оплату", "🔙 Назад")
 
-        await msg.bot.send_photo(msg.chat.id, open(verification["payment_proof"], "rb"), caption="💵 Чек об оплате")
+        proof_path = verification["payment_proof"]
+        if proof_path.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+            await msg.bot.send_photo(msg.chat.id, open(proof_path, "rb"), caption="💵 Чек об оплате")
+        else:
+            await msg.bot.send_document(msg.chat.id, open(proof_path, "rb"), caption="💵 Чек об оплате")
+
         await msg.answer("Выберите действие:", reply_markup=kb)
         await state.set_state("processing_payment_user")
 
@@ -109,7 +114,10 @@ def register_operator_payments(dp: Dispatcher):
         user_id = (await state.get_data())["current_user"]
         verification = get_verification_data(user_id)
 
-        if verification and verification.get("video") == "SKIP":
+        if is_verified(user_id):
+            set_verification_status(user_id, "finished")
+            await msg.bot.send_message(user_id, "✅ Спасибо! Оплата подтверждена. Мы обработаем вашу заявку в ближайшее время.")
+        elif verification and verification.get("video") == "SKIP":
             set_verification_status(user_id, "finished")
             await msg.bot.send_message(user_id, "✅ Спасибо, мы обрабатываем вашу заявку. Ожидайте.")
         else:

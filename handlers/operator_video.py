@@ -46,7 +46,12 @@ def register_operator_video(dp: Dispatcher):
         kb = ReplyKeyboardMarkup(resize_keyboard=True)
         kb.add("✅ Подтвердить видео", "❌ Отклонить видео", "🔙 Назад")
 
-        await msg.bot.send_video(msg.chat.id, video=open(verification["video"], "rb"), caption="🎥 Видео клиента")
+        video_path = verification["video"]
+        if video_path.lower().endswith((".mp4", ".mov", ".mkv")):
+            await msg.bot.send_video(msg.chat.id, open(video_path, "rb"), caption="🎥 Видео клиента")
+        else:
+            await msg.bot.send_document(msg.chat.id, open(video_path, "rb"), caption="🎥 Видео клиента")
+
         await msg.answer("Выберите действие:", reply_markup=kb)
         await state.set_state("processing_video_user")
 

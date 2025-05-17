@@ -1,10 +1,11 @@
 from aiogram import types
 from aiogram.dispatcher import FSMContext, Dispatcher
+from utils.notifier import notify_group
+
 from database.db import (
-    create_verification,
-    set_verification_status,
     is_verified,
     get_verification_status,
+    create_requisite_request
 )
 
 
@@ -20,12 +21,15 @@ def register_direct_request(dp: Dispatcher):
 
         current_status = get_verification_status(user_id)
 
-        if current_status in ("docs_ok", "paid_waiting", "video_waiting"):
-            await msg.answer("⏳ Ваша заявка уже находится в обработке. Ожидайте оператора.")
+        if current_status not in ("video_ok", "finished"):
+            await msg.answer("⏳ Ваша заявка ещё не завершена. Ожидайте оператора.")
             return
 
-        # создаём новую заявку даже если прошёл старый путь ранее
-        create_verification(user_id)
-        set_verification_status(user_id, "docs_ok", is_direct=True)
+        # логика создания заявки
+        if not create_requisite_request(user_id):
+            await msg.answer("⚠️ У вас уже есть активная заявка на получение реквизитов.\nОжидайте оператора.")
+            return
 
         await msg.answer("📨 Запрос на реквизиты отправлен.\nОжидайте, оператор вышлет их вручную.")
+        await notify_group(msg.bot, f"📬 Клиент {user_id} запросил реквизиты после верификации.")
+

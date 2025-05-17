@@ -5,7 +5,6 @@ DB_PATH = "data.db"
 def create_connection():
     return sqlite3.connect(DB_PATH)
 
-
 def init_db():
     with create_connection() as conn:
         cursor = conn.cursor()
@@ -40,6 +39,16 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             label TEXT NOT NULL,
             details TEXT NOT NULL
+        )
+        """)
+
+        # Таблица запросов на реквизиты
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER UNIQUE,
+            status TEXT DEFAULT 'waiting',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """)
 
@@ -133,20 +142,83 @@ def get_verification_data(user_id: int) -> dict:
                 "reason": row[5],
             }
         return {}
+    
+    
 
-def get_pending_verifications(status: str):
+def get_pending_verifications(stage: str) -> list:
     conn = create_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT user_id FROM verifications WHERE status = ?", (status,))
-    result = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return result
 
-def get_pending_verifications_count(status: str) -> int:
-    with create_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM verifications WHERE status = ?", (status,))
-        return cursor.fetchone()[0]
+    if stage == "new":
+        cursor.execute("""
+            SELECT user_id FROM verifications
+            WHERE status = 'new' AND doc_photo IS NOT NULL AND selfie_photo IS NOT NULL
+        """)
+    elif stage == "paid_waiting":
+        cursor.execute("""
+            SELECT user_id FROM verifications
+            WHERE status = 'paid_waiting' AND payment_proof IS NOT NULL AND payment_proof != ''
+        """)
+
+    elif stage == "video_waiting":
+        cursor.execute("""
+            SELECT user_id FROM verifications
+            WHERE status = 'video_waiting' AND video IS NOT NULL
+        """)
+    elif stage == "docs_ok":
+        cursor.execute("""
+            SELECT user_id FROM verifications
+            WHERE status = 'docs_ok'
+        """)
+    else:
+        cursor.execute("""
+            SELECT user_id FROM verifications
+            WHERE status = ?
+        """, (stage,))
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [row[0] for row in rows]
+
+def get_pending_requisites_count_manual() -> int:
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM requests WHERE status = 'waiting'")
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
+
+
+def get_pending_verifications_count(stage: str) -> int:
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    if stage == "new":
+        cursor.execute("""
+            SELECT COUNT(*) FROM verifications
+            WHERE status = 'new' AND doc_photo IS NOT NULL AND selfie_photo IS NOT NULL
+        """)
+    elif stage == "paid_waiting":
+        cursor.execute("""
+            SELECT COUNT(*) FROM verifications
+            WHERE status = 'paid_waiting' AND payment_proof IS NOT NULL
+        """)
+    elif stage == "video_waiting":
+        cursor.execute("""
+            SELECT COUNT(*) FROM verifications
+            WHERE status = 'video_waiting' AND video IS NOT NULL
+        """)
+    elif stage == "docs_ok":
+        cursor.execute("""
+            SELECT COUNT(*) FROM verifications
+            WHERE status = 'docs_ok'
+        """)
+    else:
+        cursor.execute("SELECT COUNT(*) FROM verifications WHERE status = ?", (stage,))
+
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
 
 
 def is_verified(user_id: int) -> bool:
@@ -189,7 +261,49 @@ def delete_requisite(requisite_id: int):
 def get_verification_status(user_id: int) -> str:
     conn = create_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT status FROM verifications WHERE user_id = ? ORDER BY id DESC LIMIT 1", (user_id,))
+    cursor.execute("SELECT status FROM verifications WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
     conn.close()
-    return row[0] if row else ""
+    return row[0] if row else None
+
+#===== Реквизиты (отдельные заявки) =====
+
+def create_requisite_request(user_id: int) -> bool:
+    conn = create_connection()
+    cursor = conn.cursor()
+
+    # Проверка на активную заявку
+    cursor.execute("""
+        SELECT 1 FROM requests
+        WHERE user_id = ? AND status = 'waiting'
+    """, (user_id,))
+    exists = cursor.fetchone()
+
+    if exists:
+        conn.close()
+        return False  # Уже есть активная заявка
+
+    # Создание новой заявки
+    cursor.execute("""
+        INSERT OR REPLACE INTO requests (user_id, status, created_at)
+        VALUES (?, 'waiting', CURRENT_TIMESTAMP)
+    """, (user_id,))
+    conn.commit()
+    conn.close()
+    return True
+
+def get_pending_requisite_requests() -> list:
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM requests WHERE status = 'waiting'")
+    rows = cursor.fetchall()
+    conn.close()
+    return [row[0] for row in rows]
+
+
+def mark_requisite_request_done(user_id: int):
+    conn = create_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE requests SET status = 'done' WHERE user_id = ?", (user_id,))
+    conn.commit()
+    conn.close()

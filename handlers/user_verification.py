@@ -3,6 +3,8 @@ from aiogram.dispatcher import FSMContext, Dispatcher
 from states.verification import VerificationFSM
 from keyboards.reply_common import cancel_keyboard
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from utils.notifier import notify_group
+
 
 from database.db import (
     create_verification,
@@ -52,63 +54,68 @@ def register_user_verification(dp: Dispatcher):
         )
         await VerificationFSM.waiting_documents.set()
 
-    @dp.message_handler(content_types=types.ContentType.PHOTO, state=VerificationFSM.waiting_documents)
+    @dp.message_handler(content_types=[types.ContentType.PHOTO, types.ContentType.DOCUMENT], state=VerificationFSM.waiting_documents)
     async def step_documents(msg: types.Message, state: FSMContext):
         data = await state.get_data()
+        file = msg.photo[-1] if msg.photo else msg.document
+        file_id = file.file_id
 
         if "doc_photo" not in data:
-            file_id = msg.photo[-1].file_id
-            path = await save_file(msg.bot, file_id, "docs")
+            path = await save_file(msg.bot, file_id, "docs", msg.from_user.id)
             await state.update_data(doc_photo=path)
             await msg.answer("✅ Паспорт получен. Теперь отправьте селфи.", reply_markup=cancel_keyboard)
             return
 
-        file_id = msg.photo[-1].file_id
-        selfie_path = await save_file(msg.bot, file_id, "docs")
+        selfie_path = await save_file(msg.bot, file_id, "docs", msg.from_user.id)
         doc_path = data["doc_photo"]
 
         update_verification(msg.from_user.id, "doc_photo", doc_path)
         update_verification(msg.from_user.id, "selfie_photo", selfie_path, "new")
 
         await msg.answer("📬 Документы отправлены оператору. Ожидайте проверки.", reply_markup=types.ReplyKeyboardRemove())
+        await notify_group(msg.bot, f"📄 Клиент {msg.from_user.id} загрузил паспорт.")
         await state.finish()
 
-    @dp.message_handler(content_types=types.ContentType.PHOTO, state=VerificationFSM.waiting_payment_proof)
+    @dp.message_handler(content_types=[types.ContentType.PHOTO, types.ContentType.DOCUMENT], state=VerificationFSM.waiting_payment_proof)
     async def step_payment(msg: types.Message, state: FSMContext):
-        file_id = msg.photo[-1].file_id
-        path = await save_file(msg.bot, file_id, "payments")
+        file = msg.photo[-1] if msg.photo else msg.document
+        file_id = file.file_id
+        path = await save_file(msg.bot, file_id, "payments", msg.from_user.id)
         update_verification(msg.from_user.id, "payment_proof", path, "paid_waiting")
         await msg.answer("📤 Чек отправлен оператору. Ожидайте подтверждения.")
+        await notify_group(msg.bot, f"💵 Клиент {msg.from_user.id} отправил чек об оплате.")
         await state.finish()
 
-    @dp.message_handler(content_types=types.ContentType.VIDEO, state=VerificationFSM.waiting_video)
+    @dp.message_handler(content_types=[types.ContentType.VIDEO, types.ContentType.DOCUMENT], state=VerificationFSM.waiting_video)
     async def step_video(msg: types.Message, state: FSMContext):
-        file_id = msg.video.file_id
-        path = await save_file(msg.bot, file_id, "videos")
+        file = msg.video or msg.document
+        file_id = file.file_id
+        path = await save_file(msg.bot, file_id, "videos", msg.from_user.id)
         update_verification(msg.from_user.id, "video", path, "video_waiting")
         await msg.answer("📤 Видео отправлено оператору. Ожидайте подтверждения.")
+        await notify_group(msg.bot, f"🎥 Клиент {msg.from_user.id} отправил видео для верификации.")
         await state.finish()
 
-    # Резервный обработчик чека
-    @dp.message_handler(content_types=types.ContentType.PHOTO)
+    @dp.message_handler(content_types=[types.ContentType.PHOTO, types.ContentType.DOCUMENT])
     async def fallback_payment_handler(msg: types.Message):
         user_id = msg.from_user.id
         status = get_verification_status(user_id)
         if status != "paid_waiting":
             return
 
-        path = await save_file(msg.bot, msg.photo[-1].file_id, "payments")
+        file = msg.photo[-1] if msg.photo else msg.document
+        path = await save_file(msg.bot, file.file_id, "payments", user_id)
         update_verification(user_id, "payment_proof", path, "paid_waiting")
         await msg.answer("✅ Чек получен. Ожидайте подтверждения от оператора.")
 
-    # Резервный обработчик видео
-    @dp.message_handler(content_types=types.ContentType.VIDEO)
+    @dp.message_handler(content_types=[types.ContentType.VIDEO, types.ContentType.DOCUMENT])
     async def fallback_video_handler(msg: types.Message):
         user_id = msg.from_user.id
         status = get_verification_status(user_id)
         if status != "video_waiting":
             return
 
-        path = await save_file(msg.bot, msg.video.file_id, "videos")
+        file = msg.video or msg.document
+        path = await save_file(msg.bot, file.file_id, "videos", user_id)
         update_verification(user_id, "video", path, "video_waiting")
         await msg.answer("📤 Видео получено. Ожидайте подтверждения.")

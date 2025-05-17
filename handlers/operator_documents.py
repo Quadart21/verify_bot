@@ -45,8 +45,19 @@ def register_operator_documents(dp: Dispatcher):
         kb = ReplyKeyboardMarkup(resize_keyboard=True)
         kb.add("✅ Подтвердить документы", "❌ Отклонить документы", "🔙 Назад")
 
-        await msg.bot.send_photo(msg.chat.id, open(verification["doc_photo"], "rb"), caption="📄 Паспорт")
-        await msg.bot.send_photo(msg.chat.id, open(verification["selfie_photo"], "rb"), caption="🤳 Селфи")
+        doc_path = verification["doc_photo"]
+        selfie_path = verification["selfie_photo"]
+
+        if doc_path.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+            await msg.bot.send_photo(msg.chat.id, open(doc_path, "rb"), caption="📄 Паспорт")
+        else:
+            await msg.bot.send_document(msg.chat.id, open(doc_path, "rb"), caption="📄 Паспорт")
+
+        if selfie_path.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+            await msg.bot.send_photo(msg.chat.id, open(selfie_path, "rb"), caption="🤳 Селфи")
+        else:
+            await msg.bot.send_document(msg.chat.id, open(selfie_path, "rb"), caption="🤳 Селфи")
+
         await msg.answer("Выберите действие:", reply_markup=kb)
         await state.set_state("processing_document_user")
 

@@ -1,21 +1,19 @@
+from database.db import get_pending_verifications_count, get_pending_requisites_count_manual
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
-def get_operator_menu(counts: dict = None, layout: list = None):
-    counts = counts or {"docs": 0, "requisites": 0, "payments": 0, "videos": 0}
-    
-    # Стандартный layout, если не указан
-    default_layout = [
-        [f"📄 Проверить документы ({counts['docs']})", f"💳 Выдать реквизиты ({counts['requisites']})"],
-        [f"💰 Проверить оплату ({counts['payments']})", f"🎥 Проверить видео ({counts['videos']})"],
-        ["📋 Список заявок"],
-        ["⚙️ Управление реквизитами"]
-    ]
-    
-    layout = layout or default_layout
-    
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    
-    for row in layout:
-        markup.row(*[KeyboardButton(btn_text) for btn_text in row])
-    
-    return markup
+def get_operator_menu(counts: dict) -> ReplyKeyboardMarkup:
+    requisites_count = get_pending_requisites_count_manual()
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+
+    kb.row(
+        KeyboardButton(f"📄 Проверить документы ({counts['docs']})"),
+        KeyboardButton(f"💳 Выдать реквизиты ({requisites_count})"),
+    )
+    kb.row(
+        KeyboardButton(f"💰 Проверить оплату ({counts['payments']})"),
+        KeyboardButton(f"🎥 Проверить видео ({counts['videos']})"),
+    )
+    kb.row(KeyboardButton("📋 Список заявок"))
+    kb.row(KeyboardButton("⚙️ Управление реквизитами"))
+
+    return kb
