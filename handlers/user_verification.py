@@ -122,7 +122,7 @@ def register_user_verification(dp: Dispatcher):
         path = await save_file(msg.bot, file.file_id, "payments", user_id)
         update_verification(user_id, "payment_proof", path, "paid_waiting")
         await msg.answer("✅ Чек получен. Ожидайте подтверждения от оператора.")
-        await notify_group(msg.bot, f"💵 (fallback) Клиент {user_id} повторно отправил чек.")
+        await notify_group(msg.bot, f"💵 Клиент {user_id} отправил чек.")
 
     @dp.message_handler(content_types=[types.ContentType.VIDEO, types.ContentType.DOCUMENT])
     async def fallback_video_handler(msg: types.Message):
@@ -135,4 +135,4 @@ def register_user_verification(dp: Dispatcher):
         path = await save_file(msg.bot, file.file_id, "videos", user_id)
         update_verification(user_id, "video", path, "video_waiting")
         await msg.answer("📤 Видео получено. Ожидайте подтверждения.")
-        await notify_group(msg.bot, f"🎥 (fallback) Клиент {user_id} повторно отправил видео.")
+        await notify_group(msg.bot, f"🎥Клиент {user_id} отправил видео.")
