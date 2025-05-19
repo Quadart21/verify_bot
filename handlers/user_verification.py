@@ -88,7 +88,7 @@ def register_user_verification(dp: Dispatcher):
         update_verification(msg.from_user.id, "selfie_photo", selfie_path, "new")
 
         await msg.answer("📬 Документы отправлены оператору. Ожидайте проверки.", reply_markup=types.ReplyKeyboardRemove())
-        await notify_group(msg.bot, f"📄 Клиент {msg.from_user.id} загрузил паспорт.")
+        await notify_group(msg.bot, f"📄 Клиент {msg.from_user.id} загрузил паспорт.", user_id=msg.from_user.id)
         await state.finish()
 
     @dp.message_handler(content_types=[types.ContentType.PHOTO, types.ContentType.DOCUMENT], state=VerificationFSM.waiting_payment_proof)
@@ -98,7 +98,7 @@ def register_user_verification(dp: Dispatcher):
         path = await save_file(msg.bot, file_id, "payments", msg.from_user.id)
         update_verification(msg.from_user.id, "payment_proof", path, "paid_waiting")
         await msg.answer("📤 Чек отправлен оператору. Ожидайте подтверждения.")
-        await notify_group(msg.bot, f"💵 Клиент {msg.from_user.id} отправил чек об оплате.")
+        await notify_group(msg.bot, f"💵 Клиент {msg.from_user.id} отправил чек об оплате.", user_id=msg.from_user.id)
         await state.finish()
 
     @dp.message_handler(content_types=[types.ContentType.VIDEO, types.ContentType.DOCUMENT], state=VerificationFSM.waiting_video)
@@ -108,7 +108,7 @@ def register_user_verification(dp: Dispatcher):
         path = await save_file(msg.bot, file_id, "videos", msg.from_user.id)
         update_verification(msg.from_user.id, "video", path, "video_waiting")
         await msg.answer("📤 Видео отправлено оператору. Ожидайте подтверждения.")
-        await notify_group(msg.bot, f"🎥 Клиент {msg.from_user.id} отправил видео для верификации.")
+        await notify_group(msg.bot, f"🎥 Клиент {msg.from_user.id} отправил видео для верификации.", user_id=msg.from_user.id)
         await state.finish()
 
     @dp.message_handler(content_types=[types.ContentType.PHOTO, types.ContentType.DOCUMENT])
@@ -122,7 +122,7 @@ def register_user_verification(dp: Dispatcher):
         path = await save_file(msg.bot, file.file_id, "payments", user_id)
         update_verification(user_id, "payment_proof", path, "paid_waiting")
         await msg.answer("✅ Чек получен. Ожидайте подтверждения от оператора.")
-        await notify_group(msg.bot, f"💵 Клиент {user_id} отправил чек.")
+        await notify_group(msg.bot, f"💵 Клиент {user_id} отправил чек.", user_id=msg.from_user.id)
 
     @dp.message_handler(content_types=[types.ContentType.VIDEO, types.ContentType.DOCUMENT])
     async def fallback_video_handler(msg: types.Message):
@@ -135,4 +135,4 @@ def register_user_verification(dp: Dispatcher):
         path = await save_file(msg.bot, file.file_id, "videos", user_id)
         update_verification(user_id, "video", path, "video_waiting")
         await msg.answer("📤 Видео получено. Ожидайте подтверждения.")
-        await notify_group(msg.bot, f"🎥Клиент {user_id} отправил видео.")
+        await notify_group(msg.bot, f"🎥Клиент {user_id} отправил видео.", user_id=msg.from_user.id)

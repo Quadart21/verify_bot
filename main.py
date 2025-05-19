@@ -11,7 +11,7 @@ from handlers.operator_video import register_operator_video
 from handlers.operator_requisites import register_operator_requisites
 from handlers.direct_request import register_direct_request
 from handlers.operator_all_requests import register_operator_all_requests
-
+from handlers.mailing import register_mailing
 def main():
     # Инициализация базы данных
     init_db()
@@ -29,6 +29,7 @@ def main():
     register_operator_requisites(dp)
     register_direct_request(dp)
     register_operator_all_requests (dp)
+    register_mailing(dp)
 
     # Запуск
     executor.start_polling(dp, skip_updates=True)

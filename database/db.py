@@ -56,6 +56,14 @@ def init_db():
 
 # ===================== Пользователи =====================
 
+
+def get_all_users() -> list:
+    with create_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT telegram_id FROM users")
+        return [row[0] for row in cursor.fetchall()]
+
+
 def add_user(telegram_id: int):
     with create_connection() as conn:
         cursor = conn.cursor()
