@@ -6,10 +6,13 @@ from database.db import (
     get_verification_data,
     set_verification_status,
     set_user_verified,
-    get_pending_verifications_count
+    get_pending_verifications_count,
+    is_verified
+    
 )
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from keyboards.reply_operator import get_operator_menu
+from keyboards.reply_user import get_retry_keyboard, get_user_menu
 
 
 def register_operator_video(dp: Dispatcher):
@@ -64,7 +67,10 @@ def register_operator_video(dp: Dispatcher):
         await msg.bot.send_message(
             user_id,
             "🔄 Благодарим Вас за успешное прохожлдение верификации.\n\n✔️ Отправили вашу заявку на выплату.\n\n⚠️ Информирую, что для дальнейших обменов от Вас потребуется только подтверждение оплаты в виде квитанции.\n\n👍 Будем ждать вас снова!"
+
         )
+
+        await msg.answer("Выберите действие:", reply_markup=get_user_menu(is_verified(msg.from_user.id)))
 
         await state.finish()
         counts = {
@@ -84,9 +90,17 @@ def register_operator_video(dp: Dispatcher):
     async def reject_video_finish(msg: types.Message, state: FSMContext):
         reason = msg.text
         user_id = (await state.get_data())["current_user"]
+
         set_verification_status(user_id, "rejected", reason)
 
-        await msg.bot.send_message(user_id, f"❌ Видео отклонено.\nПричина: {reason}")
+        # Уведомление клиента
+        await msg.bot.send_message(
+            user_id,
+            f"❌ Видео отклонено.\nПричина: {reason}\n\nХотите загрузить видео заново или вернуться в начало?",
+            reply_markup=get_retry_keyboard("🎥 Загрузить видео заново")
+        )
+
+        # Завершение FSM и возврат в меню оператора
         await state.finish()
         counts = {
             "docs": get_pending_verifications_count("new"),

@@ -9,6 +9,8 @@ from database.db import (
 )
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from keyboards.reply_operator import get_operator_menu
+from keyboards.reply_user import get_retry_keyboard
+
 
 def register_operator_documents(dp: Dispatcher):
 
@@ -86,8 +88,17 @@ def register_operator_documents(dp: Dispatcher):
         reason = msg.text
         data = await state.get_data()
         user_id = data["current_user"]
+
         set_verification_status(user_id, "rejected", reason)
-        await msg.bot.send_message(user_id, f"❌ Ваши документы отклонены.\nПричина: {reason}")
+
+        # Уведомление клиента
+        await msg.bot.send_message(
+            user_id,
+            f"❌ Ваши документы отклонены.\nПричина: {reason}\n\nХотите загрузить документы заново или вернуться в начало?",
+            reply_markup=get_retry_keyboard("📄 Загрузить документы заново")
+        )
+
+        # Завершение FSM и возврат панели оператору
         await state.finish()
         counts = {
             "docs": get_pending_verifications_count("new"),
@@ -96,6 +107,7 @@ def register_operator_documents(dp: Dispatcher):
             "videos": get_pending_verifications_count("video_waiting"),
         }
         await msg.answer("📛 Документы отклонены.\n↩ Возврат в меню оператора.", reply_markup=get_operator_menu(counts))
+
 
     @dp.message_handler(text="🔙 Назад", state="*", user_id=OPERATORS)
     async def go_back(msg: types.Message, state: FSMContext):

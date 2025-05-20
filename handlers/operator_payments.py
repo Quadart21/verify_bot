@@ -14,7 +14,7 @@ from database.db import (
 )
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from keyboards.reply_operator import get_operator_menu
-
+from keyboards.reply_user import get_retry_keyboard
 
 def register_operator_payments(dp: Dispatcher): 
 
@@ -144,8 +144,18 @@ def register_operator_payments(dp: Dispatcher):
     async def reject_payment_finish(msg: types.Message, state: FSMContext):
         reason = msg.text
         user_id = (await state.get_data())["current_user"]
+
+        # Меняем статус клиента
         set_verification_status(user_id, "rejected", reason)
-        await msg.bot.send_message(user_id, f"❌ Оплата отклонена.\nПричина: {reason}")
+
+        # Уведомляем клиента
+        await msg.bot.send_message(
+            user_id,
+            f"❌ Оплата отклонена.\nПричина: {reason}\n\nХотите загрузить чек заново или вернуться в начало?",
+            reply_markup=get_retry_keyboard("💵 Загрузить чек заново")
+        )
+
+        # Завершаем FSM и возвращаем меню оператору
         await state.finish()
         await msg.answer("📛 Оплата отклонена.\n↩ Возврат в меню оператора.", reply_markup=get_operator_menu(_get_counts()))
 
