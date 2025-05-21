@@ -52,7 +52,13 @@ def register_start(dp: Dispatcher):
             await message.answer("👨‍💼 Панель оператора:", reply_markup=get_operator_menu(counts))
         else:
             verified = is_user_verified(user_id)
-            await message.answer("👤 Главное меню клиента:", reply_markup=get_user_menu(verified))
+            await message.answer(
+    f"👋 Добро пожаловать, {message.from_user.first_name}!\n"
+    "Вы находитесь в боте сервиса *BitcoinBox*.",
+    reply_markup=get_user_menu(verified),
+    parse_mode="Markdown"
+            )
+
 
 
 async def open_docs_request(msg: types.Message, client_id: int, state: FSMContext):

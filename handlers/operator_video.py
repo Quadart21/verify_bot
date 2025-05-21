@@ -60,25 +60,33 @@ def register_operator_video(dp: Dispatcher):
 
     @dp.message_handler(text="✅ Подтвердить видео", state="processing_video_user", user_id=OPERATORS)
     async def approve_video(msg: types.Message, state: FSMContext):
-        user_id = (await state.get_data())["current_user"]
+        data = await state.get_data()
+        user_id = data["current_user"]
+
         set_verification_status(user_id, "video_ok")
         set_user_verified(user_id)
 
         await msg.bot.send_message(
             user_id,
-            "🔄 Благодарим Вас за успешное прохожлдение верификации.\n\n✔️ Отправили вашу заявку на выплату.\n\n⚠️ Информирую, что для дальнейших обменов от Вас потребуется только подтверждение оплаты в виде квитанции.\n\n👍 Будем ждать вас снова!"
-
+            (
+                "✅ Поздравляем! Вы успешно прошли полную верификацию.\n\n"
+                "Ваша заявка отправлена на обработку. Мы уже работаем над этим и скоро вернёмся с результатом.\n\n"
+                "ℹ️ В дальнейшем для обмена потребуется только загрузить чек об оплате.\n"
+                "Спасибо за доверие!"
+            ),
+            reply_markup=get_user_menu(True)
         )
 
         await msg.answer("Выберите действие:", reply_markup=get_user_menu(is_verified(msg.from_user.id)))
-
         await state.finish()
+
         counts = {
             "docs": get_pending_verifications_count("new"),
             "requisites": get_pending_verifications_count("docs_ok"),
             "payments": get_pending_verifications_count("paid_waiting"),
             "videos": get_pending_verifications_count("video_waiting"),
         }
+
         await msg.answer("✅ Верификация клиента завершена.\n↩ Возврат в меню оператора.", reply_markup=get_operator_menu(counts))
 
     @dp.message_handler(text="❌ Отклонить видео", state="processing_video_user", user_id=OPERATORS)
